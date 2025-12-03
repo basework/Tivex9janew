@@ -18,23 +18,17 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (!mounted) return
-    const storedUser = localStorage.getItem("tivexx-user")
-    if (storedUser) {
+    if (localStorage.getItem("tivexx-user")) {
       router.push("/dashboard")
     }
   }, [mounted, router])
 
   const handleWhatsAppSupport = () => {
-    const phoneNumber = "2349059089490"
-    const message = encodeURIComponent("hello, am from Tivexx.")
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`
-    window.open(whatsappUrl, "_blank")
+    window.open(`https://wa.me/2349059089490?text=${encodeURIComponent("hello, am from Tivexx.")}`, "_blank")
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -50,10 +44,10 @@ export default function LoginPage() {
       })
 
       if (!authError && authData?.user) {
-        // User exists in Supabase Auth → fetch full profile from your users table
+        // User in Supabase Auth → fetch name + balances
         const { data: userData } = await supabase
           .from("users")
-          .select("name, email, balance, weekly_rewards, momo_number, referral_code")
+          .select("name, balance, referral_balance, referral_code")
           .eq("id", authData.user.id)
           .single()
 
@@ -62,9 +56,8 @@ export default function LoginPage() {
           JSON.stringify({
             name: userData?.name || "User",
             email: authData.user.email,
-            balance: Number(userData?.balance) || 0,
-            weeklyRewards: Number(userData?.weekly_rewards) || 0,
-            hasMomoNumber: !!userData?.momo_number,
+            balance: Number(userData?.balance || 0),
+            referralBalance: Number(userData?.referral_balance || 0),
             referralCode: userData?.referral_code || "",
           })
         )
@@ -73,10 +66,10 @@ export default function LoginPage() {
         return
       }
 
-      // STEP 2: Legacy fallback — user not in Supabase Auth yet
+      // STEP 2: Legacy user (not in Supabase Auth yet)
       const { data: localUser, error: localError } = await supabase
         .from("users")
-        .select("name, email, password, balance, weekly_rewards, momo_number, referral_code")
+        .select("name, email, password, balance, referral_balance, referral_code")
         .eq("email", email)
         .single()
 
@@ -86,14 +79,13 @@ export default function LoginPage() {
         return
       }
 
-      // Plaintext password check
       if (localUser.password !== password) {
         setError("Invalid email or password")
         setLoading(false)
         return
       }
 
-      // Optional: Try to migrate to Supabase Auth (silent, ignore errors)
+      // Optional silent migration
       try {
         await supabase.auth.signUp({
           email,
@@ -102,15 +94,14 @@ export default function LoginPage() {
         })
       } catch {}
 
-      // Save REAL user data to localStorage
+      // Save REAL data
       localStorage.setItem(
         "tivexx-user",
         JSON.stringify({
           name: localUser.name || "User",
           email: localUser.email,
-          balance: Number(localUser.balance) || 0,
-          weeklyRewards: Number(localUser.weekly_rewards) || 0,
-          hasMomoNumber: !!localUser.momo_number,
+          balance: Number(localUser.balance || 0),
+          referralBalance: Number(localUser.referral_balance || 0),
           referralCode: localUser.referral_code || "",
         })
       )
