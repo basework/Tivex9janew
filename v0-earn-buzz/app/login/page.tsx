@@ -24,7 +24,6 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!mounted) return
-
     const storedUser = localStorage.getItem("tivexx-user")
     if (storedUser) {
       router.push("/dashboard")
@@ -44,48 +43,88 @@ export default function LoginPage() {
     setError("")
 
     try {
-      // Use Supabase Auth for login
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // STEP 1: Try Supabase Auth first
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
-      if (error) {
+      if (!authError && authData?.user) {
+        // User exists in Supabase Auth → fetch full profile from your users table
+        const { data: userData } = await supabase
+          .from("users")
+          .select("name, email, balance, weekly_rewards, momo_number, referral_code")
+          .eq("id", authData.user.id)
+          .single()
+
+        localStorage.setItem(
+          "tivexx-user",
+          JSON.stringify({
+            name: userData?.name || "User",
+            email: authData.user.email,
+            balance: Number(userData?.balance) || 0,
+            weeklyRewards: Number(userData?.weekly_rewards) || 0,
+            hasMomoNumber: !!userData?.momo_number,
+            referralCode: userData?.referral_code || "",
+          })
+        )
+
+        router.push("/dashboard")
+        return
+      }
+
+      // STEP 2: Legacy fallback — user not in Supabase Auth yet
+      const { data: localUser, error: localError } = await supabase
+        .from("users")
+        .select("name, email, password, balance, weekly_rewards, momo_number, referral_code")
+        .eq("email", email)
+        .single()
+
+      if (localError || !localUser) {
         setError("Invalid email or password")
         setLoading(false)
         return
       }
 
-      // Login successful - get user data from your public.users table
-      const { data: userData } = await supabase
-        .from("users")
-        .select("name, email, referral_code")
-        .eq("id", data.user.id)
-        .single()
+      // Plaintext password check
+      if (localUser.password !== password) {
+        setError("Invalid email or password")
+        setLoading(false)
+        return
+      }
 
-      // Save to localStorage for app compatibility
+      // Optional: Try to migrate to Supabase Auth (silent, ignore errors)
+      try {
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { name: localUser.name } }
+        })
+      } catch {}
+
+      // Save REAL user data to localStorage
       localStorage.setItem(
         "tivexx-user",
         JSON.stringify({
-          name: userData?.name || "User",
-          email: data.user.email,
-          balance: 5000,
-          weeklyRewards: 5000,
-          hasMomoNumber: false,
-        }),
+          name: localUser.name || "User",
+          email: localUser.email,
+          balance: Number(localUser.balance) || 0,
+          weeklyRewards: Number(localUser.weekly_rewards) || 0,
+          hasMomoNumber: !!localUser.momo_number,
+          referralCode: localUser.referral_code || "",
+        })
       )
 
       router.push("/dashboard")
+
     } catch (err) {
-      setError("Login failed")
+      setError("Login failed. Try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  if (!mounted) {
-    return null
-  }
+  if (!mounted) return null
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 relative">
@@ -95,10 +134,7 @@ export default function LoginPage() {
             <Logo className="w-64 mb-4" />
           </div>
 
-          <h1
-            className="text-2xl font-semibold text-center text-white animate-fade-in"
-            style={{ animationDelay: "0.3s" }}
-          >
+          <h1 className="text-2xl font-semibold text-center text-white animate-fade-in" style={{ animationDelay: "0.3s" }}>
             Login to continue
           </h1>
 
@@ -118,7 +154,6 @@ export default function LoginPage() {
                 required
                 className="h-14 rounded-full bg-white/90 px-6 border border-purple-300"
               />
-
               <Input
                 type="password"
                 placeholder="Enter Password"
