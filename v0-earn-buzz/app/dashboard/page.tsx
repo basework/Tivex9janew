@@ -4,7 +4,7 @@ import type React from "react"
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CreditCard, Gamepad2, History, Home, Bell, User, Gift, Clock, Headphones, Shield, TrendingUp, Users } from "lucide-react"
+import { Gamepad2, History, Home, Bell, User, Gift, Clock, Headphones, Shield, TrendingUp, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DashboardImageCarousel } from "@/components/dashboard-image-carousel"
 import { WithdrawalNotification } from "@/components/withdrawal-notification"
@@ -13,6 +13,7 @@ import { TutorialModal } from "@/components/tutorial-modal"
 import { ScrollingText } from "@/components/scrolling-text"
 import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { supabase } from "@/lib/supabase/client"
 
 interface UserData {
   name: string
@@ -22,6 +23,7 @@ interface UserData {
   hasMomoNumber: boolean
   profilePicture?: string
   id?: string
+  referral_balance?: number
 }
 
 interface MenuItem {
@@ -41,18 +43,19 @@ export default function DashboardPage() {
   const [userData, setUserData] = useState<UserData | null>(null)
   const [showBalance, setShowBalance] = useState(true)
   const [showWithdrawalNotification, setShowWithdrawalNotification] = useState(false)
-  const [balance, setBalance] = useState(50000)
-  const [timeRemaining, setTimeRemaining] = useState(60)
-  const [canClaim, setCanClaim] = useState(true)
-  const [isCounting, setIsCounting] = useState(false)
-  const [displayedName, setDisplayedName] = useState("")
-  const [nameIndex, setNameIndex] = useState(0)
-  const [showTutorial, setShowTutorial] = useState(false)
-  const [claimCount, setClaimCount] = useState(0)
+  const [balance, setBalance] = useState<number>(0)
+  const [timeRemaining, setTimeRemaining] = useState<number>(60)
+  const [canClaim, setCanClaim] = useState<boolean>(true)
+  const [isCounting, setIsCounting] = useState<boolean>(false)
+  const [displayedName, setDisplayedName] = useState<string>("")
+  const [nameIndex, setNameIndex] = useState<number>(0)
+  const [showTutorial, setShowTutorial] = useState<boolean>(false)
+  const [claimCount, setClaimCount] = useState<number>(0)
   const [pauseEndTime, setPauseEndTime] = useState<number | null>(null)
-  const [showPauseDialog, setShowPauseDialog] = useState(false)
-  const [showReminderDialog, setShowReminderDialog] = useState(false)
-  const [showClaimSuccess, setShowClaimSuccess] = useState(false)
+  const [showPauseDialog, setShowPauseDialog] = useState<boolean>(false)
+  const [showReminderDialog, setShowReminderDialog] = useState<boolean>(false)
+  const [showClaimSuccess, setShowClaimSuccess] = useState<boolean>(false)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
 
   const handleCloseWithdrawalNotification = useCallback(() => {
     setShowWithdrawalNotification(false)
@@ -102,7 +105,7 @@ export default function DashboardPage() {
       setCanClaim(!pauseEndTime)
       setIsCounting(false)
     }
-  }, [])
+  }, [pauseEndTime])
 
   useEffect(() => {
     if (!pauseEndTime) return
@@ -142,29 +145,36 @@ export default function DashboardPage() {
     return () => clearInterval(timer)
   }, [isCounting])
 
-  const handleClaim = () => {
+  const handleClaim = async (): Promise<void> => {
     if (pauseEndTime && pauseEndTime > Date.now()) {
       setShowPauseDialog(true)
       return
     }
 
-    if (canClaim) {
+    if (!canClaim || !userData) return
+
+    try {
       const newClaimCount = claimCount + 1
       const newBalance = balance + 1000
 
-      // Update state
+      // UPDATE DATABASE FIRST (Single source of truth)
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ balance: newBalance })
+        .eq("id", userData.id || userData.userId)
+
+      if (updateError) throw updateError
+
+      // Update state after successful DB update
       setBalance(newBalance)
       setClaimCount(newClaimCount)
       
-      // Save to localStorage
+      // Update localStorage to match database
       localStorage.setItem("tivexx-claim-count", newClaimCount.toString())
       
-      // CRITICAL FIX: Update user data in localStorage
-      if (userData) {
-        const updatedUser = { ...userData, balance: newBalance }
-        localStorage.setItem("tivexx-user", JSON.stringify(updatedUser))
-        setUserData(updatedUser)
-      }
+      const updatedUser = { ...userData, balance: newBalance }
+      localStorage.setItem("tivexx-user", JSON.stringify(updatedUser))
+      setUserData(updatedUser)
 
       setShowClaimSuccess(true)
       setTimeout(() => setShowClaimSuccess(false), 3000)
@@ -195,10 +205,24 @@ export default function DashboardPage() {
         date: new Date().toISOString(),
       })
       localStorage.setItem("tivexx-transactions", JSON.stringify(transactions))
+
+      toast({
+        title: "Success!",
+        description: "₦1,000 claimed and added to your balance",
+        variant: "default",
+      })
+
+    } catch (error) {
+      console.error("Claim failed:", error)
+      toast({
+        title: "Error",
+        description: "Failed to claim reward. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number): string => {
     if (!showBalance) return "••••••••"
 
     return new Intl.NumberFormat("en-NG", {
@@ -211,13 +235,13 @@ export default function DashboardPage() {
       .replace("NGN", "₦")
   }
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  const formatPauseTime = () => {
+  const formatPauseTime = (): string => {
     if (!pauseEndTime) return ""
     const remaining = Math.max(0, pauseEndTime - Date.now())
     const hours = Math.floor(remaining / (1000 * 60 * 60))
@@ -226,27 +250,44 @@ export default function DashboardPage() {
     return `${hours}h ${minutes}m ${seconds}s`
   }
 
-  // New: handle profile picture upload (updates state + localStorage)
-  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files && e.target.files[0]
     if (!file) return
 
-    // Read as DataURL and store locally (this avoids adding server logic here)
     const reader = new FileReader()
     reader.onloadend = () => {
       const result = reader.result as string
-      const updatedUser = userData ? { ...userData, profilePicture: result } : { name: "User", email: "", balance, userId: `TX${Math.random().toString(36).substr(2, 9).toUpperCase()}`, hasMomoNumber: false, profilePicture: result }
+      const updatedUser = userData ? { 
+        ...userData, 
+        profilePicture: result 
+      } : { 
+        name: "User", 
+        email: "", 
+        balance, 
+        userId: `TX${Math.random().toString(36).substr(2, 9).toUpperCase()}`, 
+        hasMomoNumber: false, 
+        profilePicture: result 
+      }
       setUserData(updatedUser)
-      // persist
+      
       try {
         localStorage.setItem("tivexx-user", JSON.stringify(updatedUser))
+        // Optional: Update DB with profile picture
+        if (userData?.id) {
+          supabase
+            .from("users")
+            .update({ profile_picture: result })
+            .eq("id", userData.id)
+            .then(() => {
+              toast({
+                title: "Profile updated",
+                description: "Your profile picture was updated.",
+              })
+            })
+        }
       } catch (err) {
-        console.error("Failed to persist profile picture to localStorage:", err)
+        console.error("Failed to persist profile picture:", err)
       }
-      toast?.({
-        title: "Profile updated",
-        description: "Your profile picture was updated locally.",
-      })
     }
     reader.readAsDataURL(file)
   }
@@ -265,95 +306,91 @@ export default function DashboardPage() {
     },
   ]
 
-  // FIXED: Fetch user data with proper balance sync
+  // FIXED: Fetch user data with DATABASE as single source of truth
   useEffect(() => {
-    const storedUser = localStorage.getItem("tivexx-user")
+    const loadUserData = async (): Promise<void> => {
+      const storedUser = localStorage.getItem("tivexx-user")
 
-    if (!storedUser) {
-      router.push("/login")
-      return
-    }
+      if (!storedUser) {
+        router.push("/login")
+        return
+      }
 
-    const user = JSON.parse(storedUser)
+      const localUser: UserData = JSON.parse(storedUser)
+      
+      // Check tutorial
+      const tutorialShown = localStorage.getItem("tivexx-tutorial-shown")
+      if (!tutorialShown) {
+        setShowTutorial(true)
+      }
 
-    const tutorialShown = localStorage.getItem("tivexx-tutorial-shown")
-    if (!tutorialShown) {
-      setShowTutorial(true)
-    }
-
-    if (typeof user.balance !== "number") {
-      user.balance = 50000
-    }
-
-    if (!user.userId) {
-      user.userId = `TX${Math.random().toString(36).substr(2, 9).toUpperCase()}`
-    }
-
-    const fetchUserBalance = async () => {
       try {
-        const response = await fetch(`/api/user-balance?userId=${user.id || user.userId}&t=${Date.now()}`)
-        const data = await response.json()
-        
-        // FIX 1: Use the HIGHER balance between localStorage and database (preserves claims)
-        const localStorageBalance = user.balance || 50000
-        const dbBalance = data.balance || 50000
-        const baseBalance = Math.max(localStorageBalance, dbBalance)
-        
-        // FIX 2: Add referral earnings ONLY ONCE (no double-counting). But if referral already in DB main, skip re-add.
-        const referralEarnings = data.referral_balance || 0
-        const lastSyncedReferrals = localStorage.getItem("tivexx-last-synced-referrals") || "0"
-        
-        // Calculate NEW referral earnings since last sync
-        const newReferralEarnings = referralEarnings - parseInt(lastSyncedReferrals)
-        const totalBalance = baseBalance + Math.max(0, newReferralEarnings)
-        
-        // Update state with the correct total balance
-        setBalance(totalBalance)
-        
-        // Update localStorage to maintain consistency
-        const updatedUser = { 
-          ...user, 
-          balance: totalBalance
+        // 1. FETCH FROM DATABASE (Single source of truth)
+        const { data: dbUser, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", localUser.id || localUser.userId)
+          .single()
+
+        if (error) {
+          console.error("Error fetching user from DB:", error)
+          // Fallback to localStorage but don't modify balance
+          localUser.balance = Number(localUser.balance) || 0
+          setBalance(localUser.balance)
+          setUserData(localUser)
+          setIsLoading(false)
+          return
         }
+
+        // 2. USE DATABASE VALUES (Never calculate or merge in frontend)
+        const dbBalance = Number(dbUser.balance) || 0
+        
+        // Update state with database values
+        setBalance(dbBalance)
+        
+        // 3. Update localStorage to match database
+        const updatedUser: UserData = {
+          ...localUser,
+          ...dbUser,
+          balance: dbBalance,
+          userId: dbUser.id || localUser.userId
+        }
+        
         localStorage.setItem("tivexx-user", JSON.stringify(updatedUser))
-        
-        // Track what we've already synced to prevent double-counting
-        if (newReferralEarnings > 0) {
-          localStorage.setItem("tivexx-last-synced-referrals", referralEarnings.toString())
-        }
-        
         setUserData(updatedUser)
 
-        // BEST FIX: Sync merged total back to DB (includes local claims, avoids loss on next load)
-        await fetch(`/api/user-balance`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id || user.userId, balance: totalBalance })
+        console.log("User loaded from DB:", {
+          dbBalance,
+          referral_balance: dbUser.referral_balance,
+          id: dbUser.id
         })
 
       } catch (error) {
-        console.error("[Dashboard] Error fetching user balance:", error)
-        // Fallback to localStorage data only
-        setBalance(user.balance)
-        setUserData(user)
+        console.error("Error loading user data:", error)
+        // Fallback with safe defaults
+        localUser.balance = Number(localUser.balance) || 0
+        setBalance(localUser.balance)
+        setUserData(localUser)
+      } finally {
+        setIsLoading(false)
       }
-    }
 
-    fetchUserBalance()
-
-    setTimeout(() => {
-      setShowWithdrawalNotification(true)
-    }, 3000)
-
-    const showRandomNotification = () => {
-      const randomDelay = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000
+      // Show notifications
       setTimeout(() => {
         setShowWithdrawalNotification(true)
-        showRandomNotification()
-      }, randomDelay)
+      }, 3000)
+
+      const showRandomNotification = (): void => {
+        const randomDelay = Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000
+        setTimeout(() => {
+          setShowWithdrawalNotification(true)
+          showRandomNotification()
+        }, randomDelay)
+      }
+      showRandomNotification()
     }
 
-    showRandomNotification()
+    loadUserData()
   }, [router])
 
   useEffect(() => {
@@ -366,15 +403,19 @@ export default function DashboardPage() {
     }
   }, [userData, nameIndex])
 
-  if (!userData) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-green-900 to-black">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
-          <p className="mt-4 text-green-300">Loading...</p>
+          <p className="mt-4 text-green-300">Loading your account...</p>
         </div>
       </div>
     )
+  }
+
+  if (!userData) {
+    return null
   }
 
   return (
