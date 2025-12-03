@@ -46,14 +46,14 @@ export default function LoginPage() {
     try {
       let fullUser: any = null
 
-      // STEP 1: FIRST - Try Supabase Auth login
+      // STEP 1: Try Supabase Auth login first
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
       if (!authError && authData?.user) {
-        // Pull EVERYTHING using the auth user id
+        // User exists in Supabase Auth → pull everything
         const { data } = await supabase
           .from("users")
           .select("*")
@@ -62,7 +62,7 @@ export default function LoginPage() {
 
         fullUser = data
       } else {
-        // STEP 2: Legacy fallback - match by email + plaintext password
+        // STEP 2: Legacy fallback — check your old users table
         const { data: localUser } = await supabase
           .from("users")
           .select("*")
@@ -77,19 +77,12 @@ export default function LoginPage() {
 
         fullUser = localUser
 
-        // Optional silent migration to Supabase Auth
-        try {
-          await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { name: localUser.name } }
-          })
-        } catch (err) {
-          // Ignore - we don't care if it fails
-        }
+        // REMOVED THE signUp() LINE ON PURPOSE
+        // This was giving people extra referral money on every new browser
+        // No more silent migration here → referral bonus only on real register
       }
 
-      // Save the ENTIRE user object (every column) to localStorage
+      // Save the FULL user object with correct numbers
       localStorage.setItem("tivexx-user", JSON.stringify({
         ...fullUser,
         balance: Number(fullUser?.balance || 0),
@@ -117,8 +110,6 @@ export default function LoginPage() {
           <div className="animate-bounce">
             <Logo className="w-64 mb-4" />
           </div>
-
->
 
           <h1
             className="text-2xl font-semibold text-center text-white animate-fade-in"
