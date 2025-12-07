@@ -30,6 +30,12 @@ export default function RootLayout({
           crossOrigin="anonymous"
           async
         />
+        <Script
+          src="https://www.effectivegatecpm.com/y6c7aemjpt?key=e3b856771d4c305092c7d2af31a4d78b"
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+          async
+        />
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
