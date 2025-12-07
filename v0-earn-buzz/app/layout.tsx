@@ -34,6 +34,16 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <main className="min-h-screen max-w-md mx-auto bg-[#fff5f0]">{children}</main>
+          <Script id="effectivegatecpm-inline" strategy="afterInteractive">
+{`  atOptions = {
+   	'key' : 'ef78ec2b2aca683b44ddc18ec141b160',
+   	'format' : 'iframe',
+   	'height' : 300,
+   	'width' : 160,
+   	'params' : {}
+  };
+`}
+          </Script>
         </ThemeProvider>
       </body>
     </html>
