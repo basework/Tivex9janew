@@ -18,24 +18,26 @@ interface Task {
 }
 
 const AVAILABLE_TASKS: Task[] = [
-  {
-    id: "effectivegatecpm-ad",
-    platform: "Tivexx9ja Partnaship Ad",
-    description: "Tap our ad link to earn Extra money",
-    category: "Advertisement",
-    reward: 5000,
-    link: "https://www.effectivegatecpm.com/ss7byyvk?key=1948aa06d1b260e8127ecf7f05d7529c",
-    icon: "🎯",
-  },
-  {
-    id: "effectivegatecpm-ad-2",
-    platform: "Tivexx9ja Partnaship Ad 2",
-    description: "Tap our premium ad link for extra rewards",
-    category: "Advertisement",
-    reward: 5000,
-    link: "https://www.effectivegatecpm.com/y6c7aemjpt?key=e3b856771d4c305092c7d2af31a4d78b",
-    icon: "🎁",
-  },
+  /*
+  // {
+  //   id: "effectivegatecpm-ad",
+  //   platform: "Tivexx9ja Partnaship Ad",
+  //   description: "Tap our ad link to earn Extra money",
+  //   category: "Advertisement",
+  //   reward: 5000,
+  //   link: "https://www.effectivegatecpm.com/ss7byyvk?key=1948aa06d1b260e8127ecf7f05d7529c",
+  //   icon: "🎯",
+  // },
+  // {
+  //   id: "effectivegatecpm-ad-2",
+  //   platform: "Tivexx9ja Partnaship Ad 2",
+  //   description: "Tap our premium ad link for extra rewards",
+  //   category: "Advertisement",
+  //   reward: 5000,
+  //   link: "https://www.effectivegatecpm.com/y6c7aemjpt?key=e3b856771d4c305092c7d2af31a4d78b",
+  //   icon: "🎁",
+  // },
+  */
   {
     id: "telegram-channel",
     platform: "Telegram",
@@ -81,15 +83,17 @@ const AVAILABLE_TASKS: Task[] = [
     link: "https://www.facebook.com/share/17KSKa7LL8/?mibextid=wwXIfr",
     icon: "🎁",
   },
-  {
-    id: "effectivegatecpm-alternate",
-    platform: "Effective Gate CPM Alt",
-    description: "Tap our alternate ad link",
-    category: "Advertisement",
-    reward: 5000,
-    link: "https://www.effectivegatecpm.com/y6c7aemjpt?key=e3b856771d4c305092c7d2af31a4d78b",
-    icon: "💎",
-  },
+  /*
+  // {
+  //   id: "effectivegatecpm-alternate",
+  //   platform: "Effective Gate CPM Alt",
+  //   description: "Tap our alternate ad link",
+  //   category: "Advertisement",
+  //   reward: 5000,
+  //   link: "https://www.effectivegatecpm.com/y6c7aemjpt?key=e3b856771d4c305092c7d2af31a4d78b",
+  //   icon: "💎",
+  // },
+  */
   {
     id: "Website ads",
     platform: "Telegram",
