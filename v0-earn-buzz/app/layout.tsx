@@ -36,11 +36,11 @@ export default function RootLayout({
           crossOrigin="anonymous"
           async
         />
-        <script
+        {/* <script
           type="text/javascript"
           src="//pl28223171.effectivegatecpm.com/50/cd/7a/50cd7afdb93159ad4df9eb3272d18b00.js"
         ></script>
-      </head>
+      </head> */}
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <main className="min-h-screen max-w-md mx-auto bg-[#fff5f0]">{children}</main>
