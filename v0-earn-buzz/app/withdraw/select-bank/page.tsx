@@ -110,12 +110,19 @@ export default function SetupWithdrawalAccountPage() {
     setVerifyError("")
     setVerifying(true)
     try {
+      // Diagnostic: log request payload (no secrets)
+      // eslint-disable-next-line no-console
+      console.log("withdraw.verifyAccount request", { account_number: accountNumber.replace(/\D/g, ""), bank_code: bankCode })
       const res = await fetch(`/api/verify-account`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ account_number: accountNumber.replace(/\D/g, ""), bank_code: bankCode }),
       })
       const data = await res.json()
+      // Diagnostic: log response payload from server (contains Paystack response)
+      // eslint-disable-next-line no-console
+      console.log("withdraw.verifyAccount response", { status: res.status, body: data })
+
       if (!res.ok || data.error) {
         setVerifyError(data.error || "Failed to verify account")
         setVerified(false)

@@ -6,6 +6,10 @@ export async function POST(req: Request) {
     const account_number = (body.account_number || body.accountNumber || "").toString()
     const bank_code = (body.bank_code || body.bankCode || "").toString()
 
+    // Diagnostic: log incoming request (do not log secrets)
+    // eslint-disable-next-line no-console
+    console.log("/api/verify-account incoming", { account_number, bank_code })
+
     if (!account_number || !bank_code) {
       return NextResponse.json({ error: "Missing account_number or bank_code" }, { status: 400 })
     }
@@ -25,6 +29,10 @@ export async function POST(req: Request) {
     })
 
     const data = await res.json().catch(() => ({}))
+
+    // Diagnostic: log Paystack response (no secret values)
+    // eslint-disable-next-line no-console
+    console.log("/api/verify-account paystack response", { status: res.status, body: data })
 
     // Forward Paystack message and status so frontend can show the exact reason (e.g. test-mode limit)
     if (!res.ok) {
