@@ -23,6 +23,7 @@ export default function BusinessLoanPage() {
   const [accountName, setAccountName] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [banksList, setBanksList] = useState<Array<{ name: string; code: string }>>([])
 
   const banks = [
     "Access Bank", "GTBank", "First Bank", "UBA", "Zenith Bank", "Fidelity Bank", "Union Bank", "Sterling Bank",
@@ -36,43 +37,25 @@ export default function BusinessLoanPage() {
   const MAX_LOAN = 5000000
   const PROCESSING_RATE = 0.03
 
-  // Mapping of bank display names to Paystack bank codes.
-  // Codes sourced from Paystack API; fallback to /api/banks if missing here.
-  const bankNameToCode: Record<string, string> = {
-    "Access Bank": "044",
-    "GTBank": "058",
-    "First Bank": "011",
-    "UBA": "033",
-    "Zenith Bank": "057",
-    "Fidelity Bank": "070",
-    "Union Bank": "032",
-    "Sterling Bank": "232",
-    "Stanbic IBTC": "068",
-    "FCMB": "214",
-    "Keystone Bank": "082",
-    "Polaris Bank": "108",
-    "Providus Bank": "101",
-    "Titan Trust Bank": "102",
-    "Globus Bank": "103",
-    "Kuda Bank": "50211",
-    "Opay": "503",
-    "Palmpay": "104",
-    "Ecobank": "050",
-    "Heritage Bank": "030",
-    "Wema Bank": "035",
-    "SunTrust Bank": "100",
-    "Rubies Bank": "045",
-    "Parallex Bank": "110",
-    "FSDH Merchant Bank": "077",
-    "Renmoney Bank": "106",
-    "FairMoney Bank": "107",
-    "MintMFB": "090",
-    "Paycom MFB": "105",
-    "Mkobo MFB": "112",
-    "Diamond Bank": "063",
-    "Citibank Nigeria": "023",
-    "GTCO (Legacy)": "058",
-  }
+  // Fetch banks from server on mount (same as withdrawal page)
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/banks`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (mounted && data && data.banks) {
+          setBanksList(data.banks)
+        }
+      } catch (err) {
+        // ignore
+      }
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
 
   const [verifying, setVerifying] = useState(false)
@@ -126,38 +109,25 @@ export default function BusinessLoanPage() {
   const processingFee = loanAmountNum > 0 ? Math.ceil(loanAmountNum * PROCESSING_RATE) : 0
   const totalPayableNow = loanAmountNum > 0 ? loanAmountNum + processingFee : 0
 
-  // Auto-verify account when 10-digit account number and a mapped bank code are present
-  // Reusable manual/auto verify function
+  // Auto-verify account when 10-digit account number and bank code is found
   async function verifyAccount() {
     setVerifyError(null)
     setVerified(false)
     const cleaned = accountNumber.replace(/\D/g, "")
-    let code = bankNameToCode[selectedBank] || ""
 
-    if (cleaned.length !== 10) {
-      setVerifyError("Enter a valid 10-digit account and select a supported bank")
+    if (cleaned.length !== 10 || !selectedBank) {
+      setVerifyError("Enter a valid 10-digit account and select a bank")
       return
     }
 
-    // If our local map doesn't contain the code, try the server-side Paystack bank list
-    if (!code) {
-      try {
-        const banksRes = await fetch(`/api/banks`)
-        if (banksRes.ok) {
-          const jb = await banksRes.json()
-          const found = (jb.banks || []).find((b: any) => {
-            const bn = (b.name || "").toLowerCase()
-            const sel = (selectedBank || "").toLowerCase()
-            return bn === sel || bn.includes(sel) || sel.includes(bn)
-          })
-          if (found && found.code) code = found.code
-        }
-      } catch (e) {
-        // ignore and fallback to manual entry
-      }
-    }
+    // Find bank code from fetched bank list (same logic as withdrawal page)
+    const found = banksList.find((b: any) => {
+      const bn = (b.name || "").toLowerCase()
+      const sel = (selectedBank || "").toLowerCase()
+      return bn === sel || bn.includes(sel) || sel.includes(bn)
+    })
 
-    if (!code) {
+    if (!found || !found.code) {
       setVerifyError("Bank not supported for automatic verification — please enter the account name manually")
       return
     }
@@ -166,11 +136,11 @@ export default function BusinessLoanPage() {
     try {
       // Diagnostic: log request payload (no secrets)
       // eslint-disable-next-line no-console
-      console.log("verifyAccount request", { account_number: cleaned, bank_code: code })
+      console.log("verifyAccount request", { account_number: cleaned, bank_code: found.code })
       const res = await fetch(`/api/verify-account`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ account_number: cleaned, bank_code: code }),
+        body: JSON.stringify({ account_number: cleaned, bank_code: found.code }),
       })
       const data = await res.json()
       // Diagnostic: log response payload from server (contains Paystack response)
@@ -196,8 +166,7 @@ export default function BusinessLoanPage() {
 
   useEffect(() => {
     const cleaned = accountNumber.replace(/\D/g, "")
-    const code = bankNameToCode[selectedBank] || ""
-    if (cleaned.length !== 10 || !code) return
+    if (cleaned.length !== 10 || !selectedBank || banksList.length === 0) return
 
     let mounted = true
     const t = setTimeout(() => {
@@ -209,7 +178,8 @@ export default function BusinessLoanPage() {
       mounted = false
       clearTimeout(t)
     }
-  }, [accountNumber, selectedBank])
+  }, [accountNumber, selectedBank, banksList])
+
 
   return (
     <div className="min-h-screen text-white bg-gradient-to-br from-emerald-800 via-emerald-700 to-emerald-900">

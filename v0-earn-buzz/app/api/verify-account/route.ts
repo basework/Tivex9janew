@@ -30,9 +30,13 @@ export async function POST(req: Request) {
 
     const data = await res.json().catch(() => ({}))
 
-    // Diagnostic: log Paystack response (no secret values)
+    // Diagnostic: log full Paystack response with message (no secret values)
     // eslint-disable-next-line no-console
-    console.log("/api/verify-account paystack response", { status: res.status, body: data })
+    console.log("/api/verify-account paystack response", {
+      status: res.status,
+      message: data?.message || data?.error || "no message",
+      fullBody: JSON.stringify(data),
+    })
 
     // Forward Paystack message and status so frontend can show the exact reason (e.g. test-mode limit)
     if (!res.ok) {
