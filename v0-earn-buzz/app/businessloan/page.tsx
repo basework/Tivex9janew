@@ -111,40 +111,51 @@ export default function BusinessLoanPage() {
   const totalPayableNow = loanAmountNum > 0 ? loanAmountNum + processingFee : 0
 
   // Auto-verify account when 10-digit account number and a mapped bank code are present
-  useEffect(() => {
+  // Reusable manual/auto verify function
+  async function verifyAccount() {
     setVerifyError(null)
     setVerified(false)
+    const cleaned = accountNumber.replace(/\D/g, "")
+    const code = bankNameToCode[selectedBank] || ""
+    if (cleaned.length !== 10 || !code) {
+      setVerifyError("Enter a valid 10-digit account and select a supported bank")
+      return
+    }
+
+    setVerifying(true)
+    try {
+      const res = await fetch(`/api/verify-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_number: cleaned, bank_code: code }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setVerifyError(data.error || data.message || "Failed to verify account")
+        setVerified(false)
+      } else {
+        const resolvedName = data.account_name || data.data?.account_name || ""
+        setAccountName(resolvedName)
+        setVerified(true)
+        setVerifyError(null)
+      }
+    } catch (err) {
+      setVerifyError("Failed to verify account")
+      setVerified(false)
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  useEffect(() => {
     const cleaned = accountNumber.replace(/\D/g, "")
     const code = bankNameToCode[selectedBank] || ""
     if (cleaned.length !== 10 || !code) return
 
     let mounted = true
-    const t = setTimeout(async () => {
+    const t = setTimeout(() => {
       if (!mounted) return
-      setVerifying(true)
-      setVerifyError(null)
-      try {
-        const res = await fetch(`/api/verify-account`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_number: cleaned, bank_code: code }),
-        })
-        const data = await res.json()
-        if (!res.ok || data.error) {
-          setVerifyError(data.error || data.message || "Failed to verify account")
-          setVerified(false)
-        } else {
-          const resolvedName = data.account_name || data.data?.account_name || ""
-          setAccountName(resolvedName)
-          setVerified(true)
-          setVerifyError(null)
-        }
-      } catch (err) {
-        setVerifyError("Failed to verify account")
-        setVerified(false)
-      } finally {
-        setVerifying(false)
-      }
+      verifyAccount()
     }, 450)
 
     return () => {
