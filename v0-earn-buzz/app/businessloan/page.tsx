@@ -238,18 +238,41 @@ export default function BusinessLoanPage() {
 
               <div>
                 <Label htmlFor="accountNumber" className="text-sm text-white/80">Account Number</Label>
-                <Input
-                  id="accountNumber"
-                  type="text"
-                  placeholder="10-digit account number"
-                  value={accountNumber}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "")
-                    if (v.length <= 10) setAccountNumber(v)
-                  }}
-                  className="mt-2 h-12 bg-white/10 text-white placeholder:text-white/60"
-                  maxLength={10}
-                />
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    id="accountNumber"
+                    type="text"
+                    placeholder="10-digit account number"
+                    value={accountNumber}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "")
+                      if (v.length <= 10) setAccountNumber(v)
+                    }}
+                    className="flex-1 h-12 bg-white/10 text-white placeholder:text-white/60"
+                    maxLength={10}
+                  />
+                  <button
+                    onClick={() => {
+                      if (accountNumber.replace(/\D/g, "").length === 10 && selectedBank) {
+                        verifyAccount()
+                      }
+                    }}
+                    disabled={accountNumber.replace(/\D/g, "").length !== 10 || !selectedBank || verifying}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                      accountNumber.replace(/\D/g, "").length !== 10 || !selectedBank
+                        ? "bg-emerald-700/40 text-white/60 cursor-not-allowed"
+                        : "bg-emerald-600 text-white hover:bg-emerald-700"
+                    }`}
+                  >
+                    {verifying ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      </span>
+                    ) : (
+                      "Verify"
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
