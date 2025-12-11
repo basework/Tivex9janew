@@ -1,28 +1,46 @@
 import { NextResponse } from "next/server"
 
-const PAYSTACK_SECRET_KEY = "sk_test_8a0b1f199362d7acc9c390bff72c4e81f74e2ac3"
+let cached: { timestamp: number; banks: Array<{ name: string; code: string }> } | null = null
+const CACHE_TTL = 1000 * 60 * 60 * 12 // 12 hours
 
 export async function GET() {
   try {
-    const response = await fetch("https://api.paystack.co/bank", {
+    const now = Date.now()
+    if (cached && now - cached.timestamp < CACHE_TTL) {
+      return NextResponse.json({ banks: cached.banks })
+    }
+
+    const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY || process.env.NEXT_PUBLIC_PAYSTACK_SECRET_KEY
+    if (!PAYSTACK_KEY) {
+      return NextResponse.json({ error: "Missing Paystack secret key on server" }, { status: 500 })
+    }
+
+    const res = await fetch("https://api.paystack.co/bank", {
+      method: "GET",
       headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${PAYSTACK_KEY}`,
+        Accept: "application/json",
       },
     })
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch banks")
+    const data = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      const message = data?.message || data?.error || "Failed to fetch banks from Paystack"
+      return NextResponse.json({ error: message, data }, { status: res.status })
     }
 
-    const data = await response.json()
+    const banks = Array.isArray(data?.data)
+      ? data.data.map((b: any) => ({ name: b.name || b.bank_name || b.bank, code: b.code || b.bank_code || "" }))
+      : []
 
-    return NextResponse.json({
-      success: true,
-      banks: data.data,
-    })
-  } catch (error) {
-    console.error("Banks fetch error:", error)
-    return NextResponse.json({ error: "Failed to fetch banks" }, { status: 500 })
+    cached = { timestamp: now, banks }
+
+    // eslint-disable-next-line no-console
+    console.log("/api/banks fetched", { count: banks.length })
+
+    return NextResponse.json({ banks })
+  } catch (err) {
+    return NextResponse.json({ error: "Server error fetching banks" }, { status: 500 })
   }
 }

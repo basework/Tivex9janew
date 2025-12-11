@@ -116,9 +116,33 @@ export default function BusinessLoanPage() {
     setVerifyError(null)
     setVerified(false)
     const cleaned = accountNumber.replace(/\D/g, "")
-    const code = bankNameToCode[selectedBank] || ""
-    if (cleaned.length !== 10 || !code) {
+    let code = bankNameToCode[selectedBank] || ""
+
+    if (cleaned.length !== 10) {
       setVerifyError("Enter a valid 10-digit account and select a supported bank")
+      return
+    }
+
+    // If our local map doesn't contain the code, try the server-side Paystack bank list
+    if (!code) {
+      try {
+        const banksRes = await fetch(`/api/banks`)
+        if (banksRes.ok) {
+          const jb = await banksRes.json()
+          const found = (jb.banks || []).find((b: any) => {
+            const bn = (b.name || "").toLowerCase()
+            const sel = (selectedBank || "").toLowerCase()
+            return bn === sel || bn.includes(sel) || sel.includes(bn)
+          })
+          if (found && found.code) code = found.code
+        }
+      } catch (e) {
+        // ignore and fallback to manual entry
+      }
+    }
+
+    if (!code) {
+      setVerifyError("Bank not supported for automatic verification — please enter the account name manually")
       return
     }
 
