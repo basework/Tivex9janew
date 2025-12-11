@@ -12,10 +12,8 @@ export default function SetupWithdrawalAccountPage() {
   const [verifying, setVerifying] = useState<boolean>(false)
   const [verified, setVerified] = useState<boolean>(false)
   const [verifyError, setVerifyError] = useState<string>("")
-  const [limitHit, setLimitHit] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
   const [transitioning, setTransitioning] = useState(false)
-  const accountNameRef = useRef<HTMLInputElement | null>(null)
   const dropdownRef = useRef<HTMLDivElement | null>(null)
 
   const BANKS = [
@@ -118,24 +116,13 @@ export default function SetupWithdrawalAccountPage() {
         body: JSON.stringify({ account_number: accountNumber.replace(/\D/g, ""), bank_code: bankCode }),
       })
       const data = await res.json()
-      // If server responds with 429 or mentions daily/limit/exceed, show friendly manual instruction
-      const serverMsg = (data && (data.error || data.message || "")) || ""
-      const looksLikeLimit = res.status === 429 || /daily|limit|exceed|exceeded|maximum/i.test(serverMsg)
-
-      if (looksLikeLimit) {
-        // Short, user-friendly instruction and enable manual entry
-        setVerifyError("Add your name manually")
+      if (!res.ok || data.error) {
+        setVerifyError(data.error || "Failed to verify account")
         setVerified(false)
-        setLimitHit(true)
-      } else if (!res.ok || data.error) {
-        setVerifyError(data.error || data.message || "Failed to verify account")
-        setVerified(false)
-        setLimitHit(false)
       } else {
         const resolvedName = data.account_name || data.data?.account_name || ""
         setAccountName(resolvedName)
         setVerified(true)
-        setLimitHit(false)
       }
     } catch (err) {
       setVerifyError("Failed to verify account")
@@ -310,12 +297,9 @@ export default function SetupWithdrawalAccountPage() {
                 onClick={async () => {
                   // manual verify
                   if (accountNumber.replace(/\D/g, "").length !== 10 || !bankCode) return
-                  if (limitHit) return
                   await verifyAccount()
                 }}
-                disabled={
-                  accountNumber.replace(/\D/g, "").length !== 10 || !bankCode || verifying || limitHit
-                }
+                disabled={accountNumber.replace(/\D/g, "").length !== 10 || !bankCode || verifying}
                 className={`rounded-md px-4 py-3 text-sm font-semibold transition-all ${
                   accountNumber.replace(/\D/g, "").length !== 10 || !bankCode
                     ? "bg-green-200 text-green-700 cursor-not-allowed"
@@ -333,21 +317,6 @@ export default function SetupWithdrawalAccountPage() {
               </button>
             </div>
             {verifyError && <p className="text-sm text-red-600 mt-2">{verifyError}</p>}
-            {limitHit && (
-              <div className="mt-3 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    // focus the account name input to encourage manual entry
-                    accountNameRef.current?.focus()
-                  }}
-                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 bg-yellow-100 text-yellow-800 text-sm font-medium hover:bg-yellow-200"
-                >
-                  Add name manually
-                </button>
-                <p className="text-xs text-yellow-900">Dear user kindly enter name below.</p>
-              </div>
-            )}
           </div>
 
           {/* Account Name */}
@@ -363,7 +332,6 @@ export default function SetupWithdrawalAccountPage() {
               }}
               placeholder="Enter account name"
               disabled={verified}
-              ref={accountNameRef}
               className={`w-full rounded-md border px-4 py-3 focus:outline-none focus:ring-2 transition ${
                 verified
                   ? "border-green-400 bg-green-50 text-green-900 cursor-not-allowed focus:ring-green-300"
