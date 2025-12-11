@@ -242,13 +242,23 @@ export default function BusinessLoanPage() {
 
               <div>
                 <Label htmlFor="accountName" className="text-sm text-white/80">Account Name</Label>
-                <Input
-                  id="accountName"
-                  placeholder="Account holder name"
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                  className="mt-2 h-12 bg-white/10 text-white placeholder:text-white/60"
-                />
+                <div className="relative mt-2">
+                  <Input
+                    id="accountName"
+                    placeholder="Account holder name"
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value)}
+                    className="h-12 pr-10 bg-white/10 text-white placeholder:text-white/60"
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center">
+                    {verifying ? (
+                      <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : verified ? (
+                      <CheckCircle className="w-5 h-5 text-emerald-300" />
+                    ) : null}
+                  </div>
+                </div>
+                {verifyError && <p className="text-sm text-yellow-300 mt-2">{verifyError}</p>}
               </div>
             </div>
 
