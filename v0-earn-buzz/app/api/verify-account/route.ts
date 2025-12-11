@@ -1,52 +1,41 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
-const PAYSTACK_SECRET_KEY = "sk_test_8a0b1f199362d7acc9c390bff72c4e81f74e2ac3"
-
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const { account_number, bank_code } = await request.json()
+    const body = await req.json()
+    const account_number = (body.account_number || body.accountNumber || "").toString()
+    const bank_code = (body.bank_code || body.bankCode || "").toString()
 
     if (!account_number || !bank_code) {
-      return NextResponse.json({ error: "Account number and bank code are required" }, { status: 400 })
+      return NextResponse.json({ error: "Missing account_number or bank_code" }, { status: 400 })
     }
 
-    // First, get the list of banks to find the bank code
-    const banksResponse = await fetch("https://api.paystack.co/bank", {
+    const PAYSTACK_KEY = process.env.PAYSTACK_SECRET_KEY || process.env.NEXT_PUBLIC_PAYSTACK_SECRET_KEY
+    if (!PAYSTACK_KEY) {
+      return NextResponse.json({ error: "Missing Paystack secret key on server" }, { status: 500 })
+    }
+
+    const url = `https://api.paystack.co/bank/resolve?account_number=${encodeURIComponent(account_number)}&bank_code=${encodeURIComponent(bank_code)}`
+    const res = await fetch(url, {
+      method: "GET",
       headers: {
-        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${PAYSTACK_KEY}`,
+        Accept: "application/json",
       },
     })
 
-    if (!banksResponse.ok) {
-      throw new Error("Failed to fetch banks")
+    const data = await res.json().catch(() => ({}))
+
+    // Forward Paystack message and status so frontend can show the exact reason (e.g. test-mode limit)
+    if (!res.ok) {
+      const message = data?.message || data?.error || "Paystack verify error"
+      return NextResponse.json({ error: message, data }, { status: res.status })
     }
 
-    // Verify the account
-    const verifyResponse = await fetch(
-      `https://api.paystack.co/bank/resolve?account_number=${account_number}&bank_code=${bank_code}`,
-      {
-        headers: {
-          Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-          "Content-Type": "application/json",
-        },
-      },
-    )
-
-    if (!verifyResponse.ok) {
-      const errorData = await verifyResponse.json()
-      return NextResponse.json({ error: errorData.message || "Failed to verify account" }, { status: 400 })
-    }
-
-    const verifyData = await verifyResponse.json()
-
-    return NextResponse.json({
-      success: true,
-      account_name: verifyData.data.account_name,
-      account_number: verifyData.data.account_number,
-    })
-  } catch (error) {
-    console.error("Account verification error:", error)
-    return NextResponse.json({ error: "Failed to verify account" }, { status: 500 })
+    // Success: return resolved account name and full Paystack payload
+    return NextResponse.json({ account_name: data?.data?.account_name || "", data }, { status: 200 })
+  } catch (err) {
+    // Keep error message generic but include minimal info
+    return NextResponse.json({ error: "Server error while verifying account" }, { status: 500 })
   }
 }
