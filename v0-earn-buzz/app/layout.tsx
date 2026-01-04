@@ -23,7 +23,6 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="theme-color" content="#ea580c" />
-        <script src="https://pl28218006.effectivegatecpm.com/e9/5d/9f/e95d9f79fe872eba5d870aca023aa8b3.js"></script>
         <script src="https://pl28396400.effectivegatecpm.com/e8/24/da/e824dae1cd5393f4716d7745d2990580.js"></script>
       </head>
       <body className={inter.className}>
