@@ -29,8 +29,8 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <main className="min-h-screen max-w-md mx-auto bg-[#fff5f0]">{children}</main>
         </ThemeProvider>
-        <script src="https://pl28211371.effectivegatecpm.com/fe/21/ea/fe21ea915e2cf9ee46c6c8203ad8dda8.js"></script>
-        <script src="https://pl28396402.effectivegatecpm.com/85/b4/d4/85b4d4c1a46e6edf4ee48fd429cb5763.js"></script>
+        <script src="https://pl28389029.effectivegatecpm.com/5a/9e/a6/5a9ea6e15b33da2763113e5a0e63b162.js"></script>
+        
       </body>
     </html>
   )
