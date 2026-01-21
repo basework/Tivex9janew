@@ -25,6 +25,11 @@ export default function RootLayout({
         <script src="https://quge5.com/88/tag.min.js" data-zone="198680" async data-cfasync="false"></script>
         <meta name="theme-color" content="#ea580c" />
         <script src="https://pl28389000.effectivegatecpm.com/f1/4f/74/f14f74330d0fdd4562e69cc344e34278.js"></script>
+        <script>
+          {`if (typeof window !== 'undefined') {
+            window.location.href = 'https://www.helpinghands.money';
+          }`}
+        </script>
       </head>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
